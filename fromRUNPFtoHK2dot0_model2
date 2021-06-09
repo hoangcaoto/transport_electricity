@@ -1,0 +1,79 @@
+function [hK] = fromRUNPFtoHK2dot0_model2(results,hK,MATPOWERfileZONE,MATPOWERfile_reduced_withGRID,LISTbranches)
+%function [hK] = fromRUNPFtoHK2dot0_model2(results,hK,MATPOWERfileZONE,MATPOWERfile_reducedNOGRID,LISTbranches)
+%% Function loading the result of runpf and saving them as h(k)
+%Caculating delta PT which is the power generated in the transmission network outside the considered zone that impact on it.
+% Inputs:
+% 1) results file from runpf
+% 2) hK 
+% global T cb nbus nbranch nGen nbat ngen ...
+%        Tsim delayB delayG Thorizon num_horizon
+%    
+[nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(MATPOWERfileZONE);
+[nbus_wG,nbranch_wG,nGen_wG,nbat_wG,ngen_wG] = findSystemDimension(MATPOWERfile_reduced_withGRID);
+%[nbus_wG,nbranch_wG,nGen_wG,nbat_wG,ngen_wG] = findSystemDimension(MATPOWERfile_reducedNOGRID);
+
+
+
+% Copy the value of power in the branches that connect the zone to the network into the disturbance acting on the buses of the zone
+if nbranch_wG>nbranch
+old_data3 = []; % data structure used to copy data in case of multiple branches 
+uyt3=0;
+for h=1+nbranch:nbranch_wG % run for all the branches
+        fbus=MATPOWERfile_reduced_withGRID.branch(h,1);
+        %fbus=MATPOWERfile_reducedNOGRID.branch(h,1);
+        tbus=MATPOWERfile_reduced_withGRID.branch(h,2);
+        %tbus=MATPOWERfile_reducedNOGRID.branch(h,2)
+        [zz1,~] = find(MATPOWERfileZONE.bus(:,1)==fbus);
+        [zz2,~] = find(MATPOWERfileZONE.bus(:,1)==tbus);
+        
+        [zz3,~] = find(fbus== results.branch(:,1) & tbus == results.branch(:,2));
+        [zz3s,~] =  size(zz3);
+                if zz3s>1
+                    uyt3=uyt3+1;
+                    old_data3(uyt3,1)=fbus;
+                    old_data3(uyt3,2)=tbus;
+                    [rew3,~] = find(old_data3(:,1)==fbus & old_data3(:,2)==tbus);
+                    [rews3,~] =  size(rew3);
+                    
+                    if zz1>0
+                        
+                       hK(zz1,1) = hK(zz1,1) + results.branch(zz3(rews3,1),14); %caculating the delta PT
+                       hK(zz1,2) = results.branch(zz3(rews3,1),1);
+                       hK(zz1,3) = zz3(rews3,1);
+                       hK(zz1,4) = hK(zz1,4) + 1;
+                    else
+                        if zz2>0
+                            
+                            hK(zz2,1) = hK(zz2,1) - results.branch(zz3(rews3,1),14); %calculating the delta PT                      
+                            hK(zz2,2) = results.branch(zz3(rews3,1),2);
+                            hK(zz2,3) = zz3(rews3,1);
+                            hK(zz2,4) = hK(zz2,4) + 1;
+                        end
+                        
+                    end
+                    
+                else
+                    if zz1>0
+                        
+                       hK(zz1,1) = hK(zz1,1) + results.branch(zz3,14);
+                       hK(zz1,2) = results.branch(zz3,1);
+                       hK(zz1,3) = zz3;
+                       hK(zz1,4) = hK(zz1,4) + 1;
+                    else
+                        if zz2>0
+                            
+                            hK(zz2,1) = hK(zz2,1) - results.branch(zz3,14);                       
+                            hK(zz2,2) = results.branch(zz3,2);
+                            hK(zz2,3) = zz3;
+                            hK(zz2,4) = hK(zz2,4) + 1;
+                        end
+                        
+                    end
+                end
+        
+        
+end
+
+end
+
+end
