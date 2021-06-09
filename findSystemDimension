@@ -1,0 +1,34 @@
+function [nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(mpc)
+%% Function for showing the dimensions of the considered system
+% Inputs: 
+% 1) MATPOWER mpc file
+% 2) dataset=0: original dataset
+%    dataset=1: dataset modified with ext2int
+
+
+% Find the number of buses
+[nbus,~] = size(mpc.bus);
+
+
+% Find the number of branches
+[nbranch,~] = size(mpc.branch );
+
+
+% Find the number of generators
+[nGen,~] = size(mpc.gen);
+
+% Find the number of batteries
+nbat = 0;
+ngen = 0;
+if nGen>0 % in case there are generators
+for i=1:nGen
+    if mpc.gen(i,10)<0
+       nbat= nbat+1;
+    else
+        ngen = ngen+1;
+    end
+end
+end
+
+
+end
