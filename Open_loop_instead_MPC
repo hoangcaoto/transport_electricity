@@ -1,0 +1,136 @@
+MATPOWERfileNEW_MPC = MATPOWERfileNEW; %Redefine MATPOWERfile from the initial state
+
+% Preallocation for x(k), ug(k), ub(k), w(k), h(k)
+xK_new = zeros(nrA,4); % value fbus tbus index, value bus 0 index
+ucK_new = zeros(ncBC,5); % value bus index umin umax
+ubK_new = zeros(ncBB,5); % value bus index umin umax
+wK_new = zeros(ncDG,5); % value 0 0 num_of_branches_connected
+hK_new = zeros(ncDN,4); % value 0 0 num_of_branches_connected
+
+
+%%
+
+% Step 0: Setting values for first step
+%xK_new(nbranchNEW+ngenNEW+nbatNEW+1:nbranchNEW+ngenNEW+2*nbatNEW,1) = 750; %BatteryKSim_new(:,1);
+% set the initial values in MATPOWER for generators and batteries wrt given data
+PB_VGmax = 10; % 10MW at VG
+PB_VGmin = -10; % -10MW at VG
+% set the initial values of the generated power as the minimum between the
+% available one or the maximum allowed one
+min_x0_1 = min(Power_available_new(1,1),Power_generator_maximum(1)-0);
+min_x0_2 = min(Power_available_new(1,2),Power_generator_maximum(2)-0);
+min_x0_3 = min(Power_available_new(1,3),Power_generator_maximum(3)-0);
+min_x0_4 = min(Power_available_new(1,4),Power_generator_maximum(4)-0);
+PB_Sim=0;
+
+[MATPOWERfileNEW_MPC] = setGenerator(MATPOWERfileNEW_MPC,6469,Power_generator_maximum(1),0,min_x0_1,0);
+[MATPOWERfileNEW_MPC] = setGenerator(MATPOWERfileNEW_MPC,2076,Power_generator_maximum(2),0,min_x0_2,0);
+[MATPOWERfileNEW_MPC] = setGenerator(MATPOWERfileNEW_MPC,2743,Power_generator_maximum(3),0,min_x0_3,0);
+[MATPOWERfileNEW_MPC] = setGenerator(MATPOWERfileNEW_MPC,4717,Power_generator_maximum(4),0,min_x0_4,0);
+[MATPOWERfileNEW_MPC] = setGenerator(MATPOWERfileNEW_MPC,6469,PB_VGmax,PB_VGmin,PB_Sim,0);
+
+%[results, success] = runpf(MATPOWERfileNEW);
+%[results, success] = rundcpf(MATPOWERfileNEW);
+
+if sim_para==1
+    [results, success] = runpf(MATPOWERfileNEW_MPC);
+    %[results, success] = rundcpf(MATPOWERfileNEW);
+else
+    [results, success] = rundcpf(MATPOWERfileNEW_MPC);
+    %[results, success] = runpf(MATPOWERfileNEW);
+end
+
+[xK_new] = fromRUNPFtoXK2dot0_model2(results,xK_new,MATPOWERfile_reducedNOGRID,MATPOWERfile_reduced_withGRID,LISTbranches);
+[hK_new] = fromRUNPFtoHK2dot0_model2(results,hK_new,MATPOWERfile_reducedNOGRID,MATPOWERfile_reduced_withGRID,LISTbranches);
+[wK_new] = fromRUNPFtoWK2dot0_model2(results,wK_new,MATPOWERfile_reducedNOGRID,MATPOWERfile_reduced_withGRID,LISTbranches);
+[ucK_new,ubK_new] = fromRUNPFtoUK2dot0_model2(results,ucK_new,ubK_new,MATPOWERfile_reducedNOGRID,MATPOWERfile_reduced_withGRID,LISTbranches);
+
+%The first step k=1
+
+xK_new(nbranchNEW+(1:ngenNEW),1) = 0;%PcKsim_new((1:ngenNEW),1);
+xK_new(nbranchNEW+ngenNEW+(1:nbatNEW),1) = 0;%PbKsim_new((1:nbatNEW),1);
+xK_new(nbranchNEW+ngenNEW+nbatNEW+(1:nbatNEW),1) = 750;%BatteryKSim_new((1:nbatNEW),1);
+%for i=1:ngenNEW
+%    xK_new(nbranchNEW+ngenNEW+2*nbatNEW+i,1) = min(Power_available_new(1,i),Power_generator_maximum(i,1)-0); % substract 0 because PcKsim_new(i,1)=0
+%end
+
+
+%%
+%Initial value
+
+%Setting the initial value for states
+%x0 = xK_new(:,1); %Initial value for state
+%x = zeros(n,(Tsim_num_new+1)*N); %Storing N step predictions ahead
+
+Real_state_OL=xK_new(:,1);
+
+u0_c = zeros(c,1); %Initial value for curtail control 
+u0_b = zeros(b,1); %Initial value for battery control
+u0 = [u0_c;u0_b]; %Initial value for control 
+%u_OL=u0;
+
+
+%% MPC simulation
+start_time = 1;
+end_time = Tsim_num_new;
+
+%Simuation loops
+%for k = 1:Tsim_num_new
+for k = start_time:end_time-1    
+    %Setting PG_new as long as this is needed for the computation of
+    %\Delta_P_G and this last one is necessary for d_k in the MPC call
+    %for i= 1:4
+    %    PG(i,k) = min(Power_available_new(k,i),Power_generator_maximum(i,1)-Real_state(nbranchNEW+i,k));
+    %end
+    PG(1:4,k) =Real_state_OL(nbranchNEW+ngenNEW+2*nbatNEW+(1:4),k);
+    
+    % Matpower update
+    ucK_new(:,1) = zeros(4,1);%u(1:c,(k-1)*N+1);% as the control will be associated to some lines, we inherit its description in the columns 2 to 5
+    ubK_new(:,1) = 0;%u(c+1:c+b,(k-1)*N+1); % same here for the structure
+    
+    fG_real = [];
+    for i=1:4
+        fG_real(i) = Power_available_new(k,i) + Delta_PA_new(k,i) - PG(i,k) + ucK_new(i,1);% 0 because the prediction DeltaPc(i,k)=0
+    end
+   
+    gG_n_new = [];
+    for i=1:4
+        gG_n_new(i) = Power_generator_maximum(i,1) - Real_state_OL(nbranchNEW+i,k) - PG(i,k);
+    end
+    
+    for i=1:4
+        Delta_PG_real(i,k) = min(fG_real(i),gG_n_new(i));        
+    end
+    
+    wK_real(:,1) = Delta_PG_real(:,k); %Disturbance from inside zone: Delta PG
+       
+    %Update new matpower by adding the value of controls
+    %[MATPOWERfileNEW_MPC]=fromUKtoRUNPF2dot0_model2(MATPOWERfileNEW_MPC,MATPOWERfile_reducedNOGRID,results,ucK_new,ubK_new,wK_new);
+    [MATPOWERfileNEW_MPC]=fromUKtoRUNPF(MATPOWERfileNEW_MPC,MATPOWERfile_reducedNOGRID,results,ucK_new,ubK_new,wK_real);    
+     if sim_para==1  
+         [results, success] = runpf(MATPOWERfileNEW_MPC);     
+     else
+         [results, success] = rundcpf(MATPOWERfileNEW_MPC);
+     end
+
+    %Runpf again for the new matpower
+    [xK_new] = fromRUNPFtoXK2dot0_model2(results,xK_new,MATPOWERfile_reducedNOGRID,MATPOWERfile_reduced_withGRID,LISTbranches);
+    
+    Pc_new = Real_state_OL(nbranchNEW+(1:ngenNEW),k) + ucK_new(1:c,1);
+    Pb_new = Real_state_OL(nbranchNEW+ngenNEW+(1:nbatNEW),k) + ubK_new(1:b,1);
+    
+    %We update the complement...
+    P_complement_new = Power_generator_maximum(1:4) - Pc_new;
+    
+    % We update xK_new   
+    xK_new(nbranchNEW+(1:ngenNEW),1) = Pc_new;
+    xK_new(nbranchNEW+ngenNEW+(1:nbatNEW),1) = Pb_new;
+    xK_new(nbranchNEW+ngenNEW+nbatNEW+(1:nbatNEW),1) = Real_state_OL(nbranchNEW+ngenNEW+nbatNEW+(1:nbatNEW),k) - T*cb*Pb_new;
+    
+    %  for i=1:ngenNEW
+    %     xK_new(nbranchNEW+ngenNEW+2*nbatNEW+i,1) = min(Power_available_new(k+1,i),P_complement_new(i)); 
+    %  end
+    Real_state_OL=[Real_state_OL  xK_new(:,1)];
+
+end
+
