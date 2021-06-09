@@ -1,0 +1,8 @@
+function [mpc] = addBus(mpc,bus_i,type,Pd,Qd,Gs,Bs,area,Vm,Va,baseKV,zone,Vmax,Vmin)
+
+[nr,~] = size(mpc.bus);
+
+mpc.bus(nr+1,:) = [bus_i	type Pd	Qd	Gs	Bs	area	Vm	          Va	   baseKV	zone	Vmax	Vmin];
+
+end
+ 
