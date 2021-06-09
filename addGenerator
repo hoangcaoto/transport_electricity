@@ -1,0 +1,18 @@
+function [mpc] = addGenerator(mpc,bus,Pmax,Pmin,num,startup,shutdown,c3,c2,c1,c0)
+
+[nr,~] = size(mpc.gen);
+
+
+switch nargin
+        case 4
+            mpc.gencost(nr+1,:) = [2	0     0	        0	0	0	0];
+        case 11
+            mpc.gencost(nr+1,:) = [num	startup	shutdown	c3 c2 c1 c0];
+end
+
+mpc.gen(nr+1,:) = [bus 0   0	300	    -300	1.025	100	     1	    Pmax  Pmin   0   0	0	0	0	0	0	0	0	0	0];
+
+
+
+end
+
