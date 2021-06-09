@@ -1,0 +1,42 @@
+%% Script to display information on the command line
+
+% global T cb nbus nbranch nGen nbat ngen
+
+% Dimensions statement and memory preallocation
+% disp(['The matrix A is a ',num2str(nbranch+ngen+2*nbat),'x',num2str(nbranch+ngen+2*nbat),' matrix.'])
+[nrA,ncA] = size(A);
+[nrBG,ncBG] = size(Bg);
+[nrBB,ncBB] = size(Bb);
+[nrD,ncD] = size(D);
+disp(['The matrix A is a ',num2str(nrA),'x',num2str(ncA),' matrix.'])
+% A = zeros(nbranch+ngen+2*nbat);
+
+disp(['The matrix Bg is a ',num2str(nrBG),'x',num2str(ncBG),' matrix.'])
+% Bg = zeros(nbranch+ngen+2*nbat,ngen);
+% if nbat>0 % if there are batteries then
+    disp(['The matrix Bb is a ',num2str(nrBB),'x',num2str(ncBB),' matrix.'])
+%     Bb = zeros(nbranch+ngen+2*nbat,nbat);
+% else   % if there are no batteries then
+%     disp(['The matrix Bb is a ',num2str(0),'x',num2str(0),' matrix.'])
+% end
+    disp(['The matrix D is a ',num2str(nrD),'x',num2str(ncD),' matrix.'])
+%     Bb = 0;
+% end
+
+%%
+
+
+[nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(MATPOWERfileNEW);
+disp(['The entire network is composed by: ',num2str(nbus),' buses, ',num2str(nbranch),' branches, ',num2str(ngen),' generators and ',num2str(nbat),' batteries.'])
+% disp([num2str(nbus),' buses.'])
+% disp(['There are ',num2str(nbranch),' branches.'])
+% disp(['There are ',num2str(ngen),' generators.'])
+% disp(['There are ',num2str(nbat),' batteries.'])
+
+[nbusNEW,nbranchNEW,nGenNEW,nbatNEW,ngenNEW] = findSystemDimension(MATPOWERfile_reducedNOGRID);
+[~,nbranchNEWGRID,~,~,~] = findSystemDimension(MATPOWERfile_reduced_withGRID);
+disp(['The considered zone is composed by: ',num2str(nbusNEW),' buses, ',num2str(nbranchNEW),' branches, ',num2str(ngenNEW),' generators and ',num2str(nbatNEW),' batteries.'])
+disp(['The zone is connected to the network by ',num2str(nbranchNEWGRID),' branches.'])
+% disp(['There are ',num2str(nbranchNEW),' branches.'])
+% disp(['There are ',num2str(ngenNEW),' generators.'])
+% disp(['There are ',num2str(nbatNEW),' batteries.'])
