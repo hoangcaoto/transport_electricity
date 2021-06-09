@@ -1,0 +1,53 @@
+function  [MATPOWERfileNEW]=fromABDtoMATPOWER2dot0(MATPOWERfileNEW,MATPOWERfileZONE,results,ugK,ubK)
+%% Function for modifying the generators' power output wrt MPC computation
+% Inputs: 
+% 1) MATPOWER mpc file before ext2int
+% 2) MATPOWER results after runpf
+global T cb ...%nbus nbranch nGen nbat ngen ...
+       Tsim delayB delayG Thorizon
+
+
+   [nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(MATPOWERfileNEW);
+   [nbus_z,nbranch_z,nGen_z,nbat_z,ngen_z] = findSystemDimension(MATPOWERfileZONE);
+   
+   
+if nbat_z>0
+        count_batt = 0;
+end
+if ngen_z>0
+        count_genn = 0;
+end
+
+
+for h=1:nGen
+    
+    
+    
+     if nbat>0 && ngen>0
+            if results.gen(h,10)>=0
+                count_genn = count_genn +1;
+                MATPOWERfileNEW.gen(h,2)=MATPOWERfileNEW.gen(h,2)+ugK(count_genn,1);
+            else
+                 count_batt = count_batt +1;
+                 MATPOWERfileNEW.gen(h,2)=MATPOWERfileNEW.gen(h,2)+ubK(count_batt,1);
+            end
+        else 
+            if nbat==0
+                count_genn = count_genn +1;
+                MATPOWERfileNEW.gen(h,2)=MATPOWERfileNEW.gen(h,2)+ugK(count_genn,1);
+            %    MATPOWERfileOLD.gen(h,10)=MATPOWERfileOLD.gen(h,10)+ugK(count_genn,1);
+            else
+                if ngen==0
+                    count_batt = count_batt +1;
+                    MATPOWERfileNEW.gen(h,2)=MATPOWERfileNEW.gen(h,2)+ubK(count_batt,1);
+                end
+            end
+      end 
+    
+
+
+
+end
+   
+
+end
