@@ -1,0 +1,44 @@
+function [MATPOWERfile,list] = changeOrder(MATPOWERfileOLD)
+% function that sort the buses, and operate the change of coordinates to
+% the branches and generators. The buses are sorted according to FIFO.
+
+% open a empty MATPOWER file
+MATPOWERfile=loadcase('caseGeneric');
+% find the dimensions
+[nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(MATPOWERfileOLD);
+% empty list of buses, wrt the size of the input MATPOWERfileOLD
+list = zeros(nbus,2);
+j=1;
+
+for i=1:nbus
+    MATPOWERfile.bus(i,:) = MATPOWERfileOLD.bus(i,:);
+    MATPOWERfile.bus(i,1) = j;
+    list(i,1) = MATPOWERfileOLD.bus(i,1);
+    list(i,2) = j;
+    j=j+1;
+end
+
+
+for i=1:nGen
+    MATPOWERfile.gen(i,:) = MATPOWERfileOLD.gen(i,:);
+    [zz,~] = find(list(:,1)==MATPOWERfileOLD.gen(i,1));
+    MATPOWERfile.gen(i,1) = zz;
+end
+
+
+for i=1:nbranch
+    MATPOWERfile.branch(i,:) = MATPOWERfileOLD.branch(i,:);
+    z1 = find(list(:,1)==MATPOWERfileOLD.branch(i,1));
+    z2 = find(list(:,1)==MATPOWERfileOLD.branch(i,2));
+    MATPOWERfile.branch(i,1) = z1;
+    MATPOWERfile.branch(i,2) = z2;
+end
+
+
+for i=1:nGen
+    MATPOWERfile.gencost(i,:) = MATPOWERfileOLD.gencost(i,:);
+%     [zz,~] = find(list(:,1)==MATPOWERfileOLD.gen(i,1));
+%     MATPOWERfile.gen(i,1) = zz;
+end
+
+end
