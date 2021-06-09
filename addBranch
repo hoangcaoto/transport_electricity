@@ -1,0 +1,7 @@
+function [mpc] = addBranch(mpc,fbus,tbus,r,x,b,rateA,rateB,rateC,ratio,angle,status,angmin,angmax)
+
+[nr,~] = size(mpc.branch);
+
+mpc.branch(nr+1,:) = [fbus	tbus   r     x	     b	  rateA	 rateB	rateC	ratio	angle	status	angmin	angmax];
+                    % fbus	tbus	0.07357	    0.199647	0.0022	0	0	0	1	0	1	0	0;
+end
