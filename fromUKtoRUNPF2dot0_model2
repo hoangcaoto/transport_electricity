@@ -1,0 +1,200 @@
+function [GraphG,GraphPlotted] = GraphStatic2dot0(mpc,listOLDNEWoriginal,listNodesZone_OLDNEW,listNodesAdded,listNameNumber)
+%% Function for obtaining a static graphical representation of the considered graph
+% Inputs: 
+% 1) MATPOWER mpc file
+% 2) listOLDNEWoriginal: list describing the change of coordinate for the
+% first change, wiht all the buses
+% 3) listOLDNEW_reduced: list describing the change of coordinate for the
+% second change, wrt only the zones 
+% 4) list of nodes that are added for describing the connection among the
+% zone and the entire network
+% Outputs:
+%  I) the graph with respect to mpc
+% II) the plotted graph
+
+% 
+% change of coordinate for the list updated of the nodes connecting the zone to the network
+[listOFnodes_added_reduced] = new2oldMATPOWER(listNodesAdded,listOLDNEWoriginal);
+% set the dimensions of the MATPOWER file (zone)
+[nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(mpc);
+
+% 
+% mpc=loadcase('case6468rte_modified');
+% [nbus,~] = size(mpc.bus)
+% [nbranch,~] = size(mpc.branch )
+% [nGen,~] = size(mpc.gen)
+
+
+% Graph the graph
+Over=[];
+Under=[];
+for h=1:nbranch
+    fbus = mpc.branch(h,1);
+    tbus = mpc.branch(h,2);
+    Over=[Over fbus];
+    Under=[Under tbus];
+end
+GraphG = graph(Over,Under);
+
+
+WhatIsInANode = zeros(nbus,4);
+
+for i=1:nbus
+    bus=mpc.bus(i,1);
+    WhatIsInANode(i,1)=bus;
+    if mpc.bus(i,3)>0 || mpc.bus(i,4)>0 %if there is a load
+        WhatIsInANode(i,2)=1+WhatIsInANode(i,2);
+    end
+end
+
+if listOLDNEWoriginal==0
+    listOLDNEWoriginal = zeros(nbus,2);
+    listOLDNEWoriginal(:,1) = WhatIsInANode(:,1);
+    listOLDNEWoriginal(:,2) = WhatIsInANode(:,1);
+end
+
+
+
+for h=1:nGen
+    bus=mpc.gen(h,1);
+    for z=1:nbus
+        if WhatIsInANode(z,1)==bus
+          if mpc.gen(h,10)<0  %is a battery
+             WhatIsInANode(z,3)=1+WhatIsInANode(z,3);
+          else % is a generator
+             WhatIsInANode(z,4)=1+WhatIsInANode(z,4);
+          end
+        end
+    end
+end
+
+
+
+
+GraphPlotted = plot(GraphG);
+hold on
+
+%% Cycle "for" for setting the colors of each nodes.
+% If the number of nodes is less than 100, it also depicts its characteristics as battery, load or generator
+if nbus<100 
+
+
+for i=1:nbus
+    bus=mpc.bus(i,1);
+     [zz,~] = find(listNodesZone_OLDNEW(:,2)==bus);
+     old_value =  new2oldMATPOWER(listOLDNEWoriginal(zz,2),listNodesZone_OLDNEW);
+     old_value =  new2oldMATPOWER(old_value,listOLDNEWoriginal);
+%      index = find([str2double(listNameNumber(:,1))] == old_value)
+%      [findNAME,~] = find(str2double(listNameNumber(:,1))==old_value)
+     
+     isSix = cellfun(@(x)isequal(x,old_value),listNameNumber);
+     [row,~] = find(isSix);
+     
+     if row~=0
+         name = char(listNameNumber(row,2));
+     else
+         name = '';
+     end
+     
+     % if is a connection node
+    if WhatIsInANode(i,2)==0 && WhatIsInANode(i,3)==0 && WhatIsInANode(i,4)==0 %&& hhh==0
+        [zzzz,~] = find(listOFnodes_added_reduced(:,1)==old_value);
+        if zzzz>0 % if the node is in the list of nodes added to describe the connection to the grid
+            highlight(GraphPlotted,[bus],'Marker','o','NodeColor','m')%
+            labelnode(GraphPlotted,bus,[name ' ' , num2str(old_value),': N'])
+        else
+            if zzzz==0
+               highlight(GraphPlotted,[bus],'Marker','o','NodeColor','b')%
+               labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': C'])
+            end
+        end
+        
+    end 
+    % if is a node with only loads
+     if WhatIsInANode(i,2)>0 && WhatIsInANode(i,3)<=0 && WhatIsInANode(i,4)<=0 %&& hhh2==0
+            highlight(GraphPlotted,[bus],'Marker','o','NodeColor','r')
+            labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': L'])
+     end
+     % if is a node with only generators
+            if WhatIsInANode(i,2)<=0 && WhatIsInANode(i,3)<=0 && WhatIsInANode(i,4)>0 %&& hhh3==0
+               highlight(GraphPlotted,[bus],'Marker','o','NodeColor','g')
+             if   mpc.bus(i,2)==3
+                 labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': G(ref)'])
+             else
+               labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': G'])
+             end
+            end
+
+            
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)==0 && WhatIsInANode(i,4)==0 %if there is only a battery, show a diamond
+        highlight(GraphPlotted,[bus],'Marker','o','NodeColor','y'); 
+        labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': B'])
+    end
+    
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)==0%if there are a battery and a load, show a descendent traingle
+        highlight(GraphPlotted,[bus],'Marker','o','NodeColor','y'); 
+        labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': B,L'])
+    end
+    
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)==0 && WhatIsInANode(i,4)>0%if there are a battery and a generator, show a crescent traingle
+        highlight(GraphPlotted,[bus],'Marker','o','NodeColor','y'); 
+        labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': B,G'])
+    end
+    
+    if WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)>0 && WhatIsInANode(i,3)==0% is a node with loads and generators
+       highlight(GraphPlotted,[bus],'Marker','o','NodeColor','y'); 
+       labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': G,L'])
+    end 
+    
+    if WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)>0 && WhatIsInANode(i,3)>0% is a node with loads and generators
+       highlight(GraphPlotted,[bus],'Marker','o','NodeColor','y'); 
+       labelnode(GraphPlotted,bus,[name ' ' ,num2str(old_value),': G,L,B'])
+    end 
+    
+end
+
+
+
+else % if nbus>=100
+    for i=1:nbus
+    bus=mpc.bus(i,1);
+    if WhatIsInANode(i,2)==0 && WhatIsInANode(i,3)==0 && WhatIsInANode(i,4)==0 
+        highlight(GraphPlotted,[bus],'Marker','o','NodeColor','b')
+    end 
+    
+     if WhatIsInANode(i,2)>0 && WhatIsInANode(i,3)<=0 && WhatIsInANode(i,4)<=0 
+            highlight(GraphPlotted,[bus],'Marker','o','NodeColor','r')
+     end
+     
+            if WhatIsInANode(i,2)<=0 && WhatIsInANode(i,3)<=0 && WhatIsInANode(i,4)>0 
+               highlight(GraphPlotted,[bus],'Marker','o','NodeColor','g')
+            end
+            
+            
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)==0 && WhatIsInANode(i,4)==0 %if there is only a battery, show a diamond
+        highlight(GraphPlotted,[bus],'Marker','diamond','NodeColor','y'); 
+    end
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)==0%if there are a battery and a load, show a descendent traingle
+        highlight(GraphPlotted,[bus],'Marker','v','NodeColor','y'); 
+    end
+    if  WhatIsInANode(i,3)>0 && WhatIsInANode(i,2)==0 && WhatIsInANode(i,4)>0%if there are a battery and a generator, show a crescent traingle
+        highlight(GraphPlotted,[bus],'Marker','^','NodeColor','y'); 
+    end
+    if WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)>0 && WhatIsInANode(i,3)==0% is a node with loads and generators
+       highlight(GraphPlotted,[bus],'Marker','x','NodeColor','y'); 
+    end 
+    if WhatIsInANode(i,2)>0 && WhatIsInANode(i,4)>0 && WhatIsInANode(i,3)>0% is a node with loads and generators
+       highlight(GraphPlotted,[bus],'Marker','x','NodeColor','y'); 
+    end 
+end
+
+    
+end
+
+axis off
+
+%title('Watts-Strogatz Graph with $N = 500$ nodes, $K = 25$, and $\beta = 0.15$', ...    'Interpreter','latex')
+
+
+
+end
