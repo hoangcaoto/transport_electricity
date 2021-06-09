@@ -1,0 +1,162 @@
+function [GraphGD,GraphPlottedD,ColorsD,PowerInOut] = DynamicGraph2dot0(MATPOWERfile_reduced_sorted,busANDindex,branchANDindex,genANDindex,RESULTSBRANCH,RESULTSBUS,RESULTSGEN,GraphPlotted,time)
+
+% global T cb nbus nbranch nGen nbat ngen ...
+%        Tsim delayB delayG Thorizon num_horizon
+
+% change of coordinate for the list updated of the nodes connecting the zone to the network
+% [listOFnodes_added_reduced] = new2oldMATPOWER(listNodesAdded,listOLDNEWoriginal);
+% set the dimensions of the MATPOWER file (zone)
+[nbus,nbranch,nGen,nbat,ngen] = findSystemDimension(MATPOWERfile_reduced_sorted);
+
+% xK = zeros(nrA,4); % value fbus tbus index, value bus 0 index
+% ugK = zeros(ncBG,5); % value bus index umin umax
+% ubK = zeros(ncBB,5); % value bus index umin umax
+% dK = zeros(ncD,4); % value 0 0 num_of_branches_connected
+
+
+% 
+% mpc=loadcase('case9_modified');
+% [nbus,~] = size(mpc.bus);
+% [nbranch,~] = size(mpc.branch );
+% [nGen,~] = size(mpc.gen);
+
+
+YdData = findobj(GraphPlotted,'-property','YData');
+XdData = findobj(GraphPlotted,'-property','XData');
+% XdData = [-1.67580318184986,-0.393422021736543,2.065461252873415,-0.912851081584621,0.164356650880926,1.129367360558978,0.699222707681649,-0.212413944407423,-0.863917742416521];%GraphPlotted.XData;
+% YdData = [1.413315873353949,-2.161619479598337,0.749443564338845,0.770703076625896,0.901549744132061,0.408402857956467,-0.58880774888671,-1.179677275209301,-0.313310612712871];%GraphPlotted.YData;
+
+[nr_b,~] = size(branchANDindex);
+Over=[];
+Under=[];
+Weight=[];
+for i=1:nr_b
+%     if branchANDindex(i,3)==2
+    fbus = branchANDindex(i,5);
+    tbus = branchANDindex(i,6);
+    
+    if RESULTSBRANCH(branchANDindex(i,4),14,time)>0
+        Over=[Over fbus];
+        Under=[Under tbus];
+    else
+        Over=[Over tbus];
+        Under=[Under fbus];
+    end
+    Weight=[Weight abs(RESULTSBRANCH(branchANDindex(i,4),14,time))];
+%     end
+end
+GraphGD = digraph(Over,Under,Weight);
+% ResultsSim(1:nbranch,r) = results.branch(:,14)
+
+ColorsD = zeros(nbus,1);
+PowerInOut = zeros(nbus,4);
+NODELABEL = zeros(2,nbus);
+% WEIGHTBRANCHES = [];
+% for i=1:nbranch
+% WEIGHTBRANCHES(i,1) = []
+% end
+
+[nr_bu,~] = size(busANDindex);
+
+for i=1:nr_bu
+%     if busANDindex(i,2)==2
+   bus = busANDindex(i,4);
+    index = busANDindex(i,3);
+%     bus=RESULTSBUS(i,1);%bus=mpc.bus(i,1);
+    PowerInOut(i,1)=bus;
+    NODELABEL(1,i) = bus;
+%     if RESULTSBUS(index,3,time)>0 || RESULTSBUS(index,4,time)>0 %if there is a load %mpc.bus(i,3)>0 || mpc.bus(i,4)>0 %if there is a load
+        PowerInOut(i,2)=RESULTSBUS(index,3,time)+PowerInOut(i,2); %PowerInOut(i,2)=mpc.bus(i,3)+PowerInOut(i,2);
+        NODELABEL(2,i)=-RESULTSBUS(index,3,time); %NODELABEL(2,i)=-mpc.bus(i,3);
+%     end
+    
+%     end
+end
+
+
+[nr_g,~] = size(genANDindex);
+
+for i=1:nr_g
+    bus=genANDindex(i,3);
+    index=genANDindex(i,2);%RESULTSGEN(i,1); %bus=mpc.gen(i,1);
+    for kk=1:nbus
+        if bus==PowerInOut(kk,1)
+           PowerInOut(kk,3)=RESULTSGEN(index,2,time); %PowerInOut(kk,3)=mpc.gen(i,2);
+        end
+        if bus==NODELABEL(1,kk)
+           NODELABEL(2,kk)=RESULTSGEN(index,2,time); %NODELABEL(2,kk)=mpc.gen(i,2);
+        end
+    end
+end
+% NODELABEL
+
+
+MaxPowerIn =0; MaxPowerOut = 0;
+for i=1:nbus
+    PowerInOut(i,4)=PowerInOut(i,3)-PowerInOut(i,2);
+    
+%     MaxPowerIn = max(MaxPowerIn,PowerInOut(i,3)-PowerInOut(i,2),0.1);
+%     MaxPowerOut = min(MaxPowerOut,PowerInOut(i,3)-PowerInOut(i,2),-0.1);
+    
+end
+% PowerInOut
+ MaxPowerIn = max(max(PowerInOut(:,3)-PowerInOut(:,2),0),200);
+ MaxPowerOut = min(min(PowerInOut(:,3)-PowerInOut(:,2),0),-200);
+ MaxPowerIn = max(MaxPowerIn);
+ MaxPowerIn = min(MaxPowerIn,200);
+ MaxPowerOut = min(MaxPowerOut);
+ MaxPowerOut = max(MaxPowerOut,-200);
+ % find the buses 
+[list_of_2,~] = find(busANDindex(:,2)==2);
+% how many of them
+[num_of_2,~] = size(list_of_2);
+ 
+% ColorsD(1,1)=NaN;
+% for i=1+num_of_2:nbus
+% ColorsD(i,1)=NaN;
+% end
+
+% for i=1:nbus
+for i=1:nbus
+%     if MaxPowerIn>0 && MaxPowerOut>0
+    ColorsD(i,1) =  6 + 6/MaxPowerIn*max(PowerInOut(i,3)-PowerInOut(i,2),0) - 6/MaxPowerOut*min(PowerInOut(i,3)-PowerInOut(i,2),0);
+%     elseif MaxPowerIn>0 && MaxPowerOut<=0
+%         ColorsD(i,1) =  6 + 6/MaxPowerIn*max(PowerInOut(i,3)-PowerInOut(i,2),0);
+%         elseif MaxPowerIn<=0 && MaxPowerOut>0
+%             ColorsD(i,1) =  6 - 6/MaxPowerOut*min(PowerInOut(i,3)-PowerInOut(i,2),0);
+%     end
+end
+ColorsD(num_of_2+1:nbus,1) = NaN;
+
+
+
+if rem(time,2)==0
+    GraphPlottedD = plot(GraphGD,'NodeCData',ColorsD,'XData',XdData.XData,'YData',YdData.YData,'EdgeLabel',GraphGD.Edges.Weight,'EdgeColor','b','ArrowPosition',0.4,'NodeLabel',NODELABEL(2,:));%, 'LineWidth', 1*GraphGD.Edges.Weight
+% GraphPlottedD = plot(GraphGD,'NodeCData',ColorsD,'XData',XdData.XData,'YData',YdData.YData,'EdgeLabel',GraphGD.Edges.Weight,'EdgeColor','b','ArrowPosition',0.4,'NodeLabel',NODELABEL(2,:),'interpreter','latex');%, 'LineWidth', 1*GraphGD.Edges.Weight
+
+else
+    GraphPlottedD = plot(GraphGD,'NodeCData',ColorsD,'XData',XdData.XData,'YData',YdData.YData,'EdgeLabel',GraphGD.Edges.Weight,'EdgeColor','b','ArrowPosition',0.7,'NodeLabel',NODELABEL(2,:));%, 'LineWidth', 1*GraphGD.Edges.Weight
+
+end
+hold on
+%% if the buses are not part of the zone, remove the value of their P
+
+% find the buses 
+[list_of_2,~] = find(busANDindex(:,2)==2);
+% how many of them
+[num_of_2,~] = size(list_of_2);
+for i=1+num_of_2:nbus
+%     if  NODELABEL(2,i)==0
+        labelnode(GraphPlottedD,i,'')
+%     end
+end
+% labeledge(GraphPlottedD,[10 5],[8 5],'r--')
+
+axis off
+% % Custom colormap from green to red passing by blue
+ColorMAP = [linspace(1,0,50) zeros(50,1)'  ;  zeros(50,1)' linspace(0,1,50) ; linspace(0,0.1,40)  linspace(0.1,1,10)  linspace(1,0.1,10) linspace(0.1,0,40) ]';
+colormapHandle = colormap(ColorMAP);
+colorbar
+% caxis(colormapHandle,[1 12]);
+
+ end
